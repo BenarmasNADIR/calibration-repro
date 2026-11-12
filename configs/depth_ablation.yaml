@@ -1,0 +1,8 @@
+# Depth ablation (Guo et al. Fig. 2, far left), wd 1e-4, 2 seeds.
+# ResNet-56 and ResNet-110 runs are shared with wd_ablation / resnet110_main (existing logits are skipped),
+# so this config only adds ResNet-20 and ResNet-32 if the other two configs ran first.
+defaults: base.yaml
+name: depth_ablation
+depths: [20, 32, 56, 110]
+weight_decays: [1.0e-4]
+seeds: [0, 1]

@@ -1,0 +1,6 @@
+# Weight-decay ablation (Guo et al. Fig. 2, far right, used ResNet-110; we use ResNet-56 to save GPU time).
+defaults: base.yaml
+name: wd_ablation
+depths: [56]
+weight_decays: [1.0e-5, 1.0e-4, 5.0e-4, 1.0e-3, 5.0e-3]
+seeds: [0, 1]

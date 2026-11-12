@@ -1,0 +1,23 @@
+# He et al. (2016) CIFAR recipe. Guo et al. (2017) do not list hyperparameters; they follow
+# each architecture's original paper. This recipe was tuned on CIFAR-10 (assumption for CIFAR-100).
+data:
+  data_dir: data
+  val_split: configs/val_split_seed0.json   # 5,000 stratified indices (50/class) into the CIFAR-100 train set
+  split_seed: 0
+  subset_train: null
+  subset_eval: null
+train:
+  iterations: 64000          # ~182 epochs of 351 steps
+  milestones: [32000, 48000] # lr / 10
+  batch_size: 128
+  lr: 0.1
+  momentum: 0.9
+  warmup_iters: 400          # lr 0.01 for the first 400 iterations ...
+  warmup_lr: 0.01
+  warmup_min_depth: 110      # ... only for ResNet-110 (He et al. 2016, Sec. 4.2)
+  amp: true
+  log_every: 2000
+  ckpt_every: 4000
+output:
+  logits_dir: results/logits
+  checkpoint_dir: results/checkpoints

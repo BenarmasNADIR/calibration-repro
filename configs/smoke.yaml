@@ -1,0 +1,17 @@
+# CPU smoke test: 512 training images, 2 epochs, 256 val / 256 test images. Not a result.
+defaults: base.yaml
+name: smoke
+depths: [20]
+weight_decays: [1.0e-4]
+seeds: [0]
+data:
+  subset_train: 512
+  subset_eval: 256
+train:
+  epochs: 2
+  amp: false
+  log_every: 2
+  ckpt_every: 0
+output:
+  logits_dir: results/smoke/logits
+  checkpoint_dir: results/smoke/checkpoints
