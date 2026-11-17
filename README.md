@@ -49,8 +49,9 @@ uv run python src/demo_synthetic.py
 ```
 
 GPU training (Kaggle: GPU T4 x2 or P100, Internet on, "Save & Run All"; or Colab): open
-`notebooks/run_kaggle.ipynb`. It clones this repo, installs `requirements.txt` (keeping the platform's own CUDA
-PyTorch), runs the selected jobs (one per GPU, in parallel) and zips `results/logits/`. Single runs can also be
+`notebooks/run_kaggle.ipynb`. It clones this repo, installs from `requirements.txt` only the training packages the
+platform lacks, runs one part of the jobs (`PART` = 1-4, one job per GPU in parallel) and zips `results/logits/` to
+`logits_part<PART>.zip`. Single runs can also be
 launched directly:
 
 ```bash
@@ -76,8 +77,8 @@ This writes `results/tables/{per_run,main_resnet110,wd_ablation,depth_ablation,t
 | `wd_ablation.yaml`: ResNet-56, wd in {1e-5, 1e-4, 5e-4, 1e-3, 5e-3}, seeds 0-1 | 10 | ~1.5 h |
 | `depth_ablation.yaml`: ResNet-20/32 (56 and 110 reused), wd 1e-4, seeds 0-1 | 4 | ~0.6-0.9 h |
 
-Total: about 27 GPU-hours (estimate), roughly 14 h of wall time on Kaggle's T4 x2, split over two or more 12-hour
-sessions. Real times are stored in each `.npz` and written to `results/tables/train_times.csv` by `analyze.py`.
+Total: about 27 GPU-hours (estimate), roughly 14 h of wall time on Kaggle's T4 x2, split into four parts
+(one Kaggle session each, ~3-4.5 h estimated, so each stays under the 12-hour limit even if the estimates are 2x too low). Real times are stored in each `.npz` and written to `results/tables/train_times.csv` by `analyze.py`.
 
 ## Results
 
@@ -138,9 +139,10 @@ The paper only says that each model follows its original training recipe. Everyt
   mode is on, so runs are not bit-exact, and a resumed run is not bit-identical to an uninterrupted one.
 - **Data augmentation runs on the GPU** (dataset kept on the device; zero padding applied after normalization); the
   last partial batch of each epoch is dropped (351 steps per epoch).
-- **Kaggle install**: the notebook installs `requirements.txt` minus torch/torchvision and their CUDA wheels
-  (nvidia-*, cuda-*, triton), so the platform's own CUDA PyTorch is used. The lock file pins a CPU build of torch
-  for local Windows use.
+- **Kaggle install**: training needs only torch, torchvision, numpy and pyyaml, which Kaggle and Colab preinstall,
+  so the notebook installs from `requirements.txt` only the ones that are missing (installing every pin could replace
+  the platform's numpy under its CUDA build of torch). The analysis runs locally with the pinned versions (`uv sync`).
+  The lock file pins a CPU build of torch for local Windows use.
 - BBQ, Platt scaling, vector and matrix scaling from Table 1 are not implemented.
 
 ## Limitations
