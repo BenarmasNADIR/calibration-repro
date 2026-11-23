@@ -16,9 +16,9 @@ Reproduction of **Guo, Pleiss, Sun & Weinberger (2017), "On Calibration of Moder
 |---|---|
 | Metrics, temperature scaling, binning baselines, reliability diagrams | done, 21 tests pass (`uv run pytest -q`) |
 | Training script + CPU smoke test (512 images, 2 epochs) | done, passes |
-| Kaggle/Colab notebook | done (`notebooks/run_kaggle.ipynb`); job runner tested locally on the smoke config only |
-| GPU training (17 runs) | **pending**: run `notebooks/run_kaggle.ipynb` |
-| Results on CIFAR-100 | **pending**: run the notebook, then `uv run python src/analyze.py` |
+| Kaggle/Colab notebook | done (`notebooks/run_kaggle.ipynb`), used for all GPU runs |
+| GPU training (17 runs) | done: ResNet-110 x 3 seeds, ResNet-56 weight-decay ablation x 2 seeds, ResNet-20/32 x 2 seeds (ResNet-56 and ResNet-110 at wd 1e-4 are reused for the depth ablation) |
+| Results on CIFAR-100 | done: `uv run python src/analyze.py` on the 17 logits files; see Results below |
 
 ## Repository layout
 
@@ -80,24 +80,73 @@ This writes `results/tables/{per_run,main_resnet110,wd_ablation,depth_ablation,t
 Total: about 27 GPU-hours (estimate), roughly 14 h of wall time on Kaggle's T4 x2, split into four parts
 (one Kaggle session each, ~3-4.5 h estimated, so each stays under the 12-hour limit even if the estimates are 2x too low). Real times are stored in each `.npz` and written to `results/tables/train_times.csv` by `analyze.py`.
 
+Measured: Kaggle part 1 (two ResNet-110 runs in parallel, one per T4, seeds 0 and 1) took 1 h 11 min of wall time in
+total, including the repo clone, data download and tests (from the Kaggle run page). The estimates above were
+therefore too high for ResNet-110.
+
 ## Results
 
-**Pending: run `notebooks/run_kaggle.ipynb`, then `uv run python src/analyze.py`.** No CIFAR-100 numbers are
-reported yet.
+All numbers below come from `uv run python src/analyze.py` on the 17 logits files (test set; every calibrator is fit
+on the 5,000 validation images only). Full tables are in `results/tables/`.
+
+### ResNet-110, CIFAR-100 (3 seeds, mean ± std)
+
+| Method | Error (%) | NLL | ECE (%) | MCE (%) |
+|---|---|---|---|---|
+| Uncalibrated | 29.49 ± 0.77 | 1.648 ± 0.031 | 18.37 ± 0.30 | 38.35 ± 1.45 |
+| Temperature scaling | 29.49 ± 0.77 | 1.081 ± 0.025 | 1.21 ± 0.19 | 6.22 ± 1.00 |
+| Histogram binning | 31.56 ± 0.82 | 3.285 ± 0.021 | 9.81 ± 0.20 | 28.62 ± 1.15 |
+| Isotonic regression | 29.88 ± 0.76 | 1.521 ± 0.035 | 5.52 ± 0.44 | 12.88 ± 1.13 |
+
+Fitted temperature T = 2.371 ± 0.012. Reliability diagrams for seed 0:
+
+![Reliability diagrams, ResNet-110, seed 0](results/figures/reliability_resnet110.png)
 
 ### Comparison with the paper (CIFAR-100, ResNet-110)
 
 Paper numbers come from Table 1 (ECE), S1 (MCE), S2 (error) and S3 (NLL) of arXiv:1706.04599v2.
 
-| Method | Paper error (%) | Paper NLL | Paper ECE (%) | Paper MCE (%) | Ours |
-|---|---|---|---|---|---|
-| Uncalibrated | 27.83 | 1.4978 | 16.53 | 35.5 | pending |
-| Temperature scaling | 27.83 | 1.0442 | 1.26 | 4.74 | pending |
-| Histogram binning | 34.78 | 1.4379 | 2.66 | 7.03 | pending |
-| Isotonic regression | 28.41 | 1.207 | 4.99 | 10.36 | pending |
+| Method | Error (%) paper / ours | NLL paper / ours | ECE (%) paper / ours | MCE (%) paper / ours |
+|---|---|---|---|---|
+| Uncalibrated | 27.83 / 29.49 | 1.4978 / 1.648 | 16.53 / 18.37 | 35.5 / 38.35 |
+| Temperature scaling | 27.83 / 29.49 | 1.0442 / 1.081 | 1.26 / 1.21 | 4.74 / 6.22 |
+| Histogram binning | 34.78 / 31.56 | 1.4379 / 3.285 | 2.66 / 9.81 | 7.03 / 28.62 |
+| Isotonic regression | 28.41 / 29.88 | 1.207 / 1.521 | 4.99 / 5.52 | 10.36 / 12.88 |
 
-Once the logits exist, `results/tables/main_resnet110.md` lists our mean ± std over 3 seeds next to the paper's ECE.
-Differences will be reported as they are, without tuning anything to match.
+What matches and what does not (nothing was tuned to match the paper):
+
+- **Temperature scaling reproduces the paper's main result.** ECE drops from 18.37% to 1.21% (paper: 16.53% to 1.26%), with
+  no change in error, and it gives the lowest NLL of the four methods.
+- **Our network is a bit less accurate and more miscalibrated before calibration** (error 29.49% vs 27.83%, ECE 18.37%
+  vs 16.53%). We used the He et al. CIFAR-10 recipe, which the paper does not specify for CIFAR-100 (see Assumptions).
+- **Isotonic regression is close to the paper** in ECE (5.52% vs 4.99%).
+- **Histogram binning does not reproduce the paper**: ECE is 9.81% instead of 2.66%, MCE 28.62% instead of 7.03%, and its NLL
+  (3.285) is worse than the uncalibrated model's. The reliability diagram shows the calibrated confidences stay
+  overconfident in the middle bins, and no prediction gets a confidence above about 0.87. We did not investigate the
+  cause. A hypothesis, untested: taking the maximum over 100 separately calibrated one-vs-all estimates, then
+  renormalizing, is optimistically biased, and the choices the paper leaves open (15 equal-width bins, the 1e-12
+  clipping in the NLL, the renormalization, tie-breaking by `argmax`) may differ from the authors'. We did not tune
+  these choices on the test set, so this result stands as measured.
+
+### Ablations (ResNet-56 weight decay, depth at wd 1e-4; 2 seeds per point)
+
+Tables: `results/tables/wd_ablation.csv`, `results/tables/depth_ablation.csv`.
+
+![ECE vs weight decay](results/figures/ece_vs_weight_decay.png)
+
+- **More weight decay gives a lower uncalibrated ECE**, as in the paper's Figure 2: the mean ECE falls from about 23%
+  (wd 1e-5) through about 18.5% (1e-4), 14% (5e-4) and 11% (1e-3) to about 1.7% (5e-3).
+- **The lowest ECE is not a better model.** At wd 5e-3 the test error rises to roughly 50% (read from the figure; exact value in `wd_ablation.csv`), and the
+  fitted T is below 1 (0.93 and 0.98), so the model is underconfident or underfit. Test error is lowest around
+  wd 5e-4. The ECE at 5e-3 also differs noticeably between the two seeds (about 2.1% vs 1.2%), so it is a noisy estimate.
+- **Temperature scaling brings ECE to about 1-2% at every weight decay** (at most 2.3% in all 17 runs).
+
+![ECE vs depth](results/figures/ece_vs_depth.png)
+
+- **Depth: ECE rises then plateaus.** Uncalibrated ECE is about 15% for ResNet-20, about 18% for ResNet-32 and about 18.5%
+  for both ResNet-56 and ResNet-110, while test error keeps falling with depth. This only partly supports the paper's
+  claim that deeper networks are more miscalibrated: in our runs there is no further increase beyond ResNet-56.
+- Temperature-scaled ECE stays at about 1% for all depths.
 
 ### Pipeline sanity check on synthetic logits (not CIFAR-100)
 
@@ -147,8 +196,11 @@ The paper only says that each model follows its original training recipe. Everyt
 
 ## Limitations
 
-- No CIFAR-100 results yet (GPU runs pending); the GPU times above are estimates.
-- 2-3 seeds give only a rough idea of variance, and one validation split is used for all runs.
-- The He et al. recipe was tuned on CIFAR-10. The paper's ResNet-110 reached 27.83% test error on CIFAR-100; ours
-  may differ, which also changes the ECE.
+- The GPU time estimates are estimates; only the part 1 wall time is a measurement.
+- 2-3 seeds give only a rough idea of variance, and one validation split is used for all runs. The weight-decay and depth
+  ablations have 2 seeds per point, so small differences between neighbouring points are not reliable.
+- The He et al. recipe was tuned on CIFAR-10. Our ResNet-110 has 29.49% test error on CIFAR-100 against 27.83% in the
+  paper, which also changes the ECE.
+- The histogram binning gap to the paper is unexplained (see Results); we only have an untested hypothesis.
+- The weight-decay ablation uses ResNet-56, not ResNet-110 as in the paper's figure.
 - Only CIFAR-100 and ResNets; no other datasets or architectures from the paper.

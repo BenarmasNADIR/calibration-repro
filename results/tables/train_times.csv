@@ -1,0 +1,18 @@
+run,gpu,amp,train_time_min
+resnet110_wd1e-04_seed0,Tesla T4,True,64.4
+resnet110_wd1e-04_seed1,Tesla T4,True,65.4
+resnet110_wd1e-04_seed2,Tesla T4,True,64.6
+resnet20_wd1e-04_seed0,Tesla T4,True,13.6
+resnet20_wd1e-04_seed1,Tesla T4,True,13.4
+resnet32_wd1e-04_seed0,Tesla T4,True,20.1
+resnet32_wd1e-04_seed1,Tesla T4,True,20.2
+resnet56_wd1e-03_seed0,Tesla T4,True,33.8
+resnet56_wd1e-03_seed1,Tesla T4,True,34.8
+resnet56_wd1e-04_seed0,Tesla T4,True,33.8
+resnet56_wd1e-04_seed1,Tesla T4,True,35.0
+resnet56_wd1e-05_seed0,Tesla T4,True,34.0
+resnet56_wd1e-05_seed1,Tesla T4,True,35.0
+resnet56_wd5e-03_seed0,Tesla T4,True,31.9
+resnet56_wd5e-03_seed1,Tesla T4,True,33.2
+resnet56_wd5e-04_seed0,Tesla T4,True,33.8
+resnet56_wd5e-04_seed1,Tesla T4,True,34.8
